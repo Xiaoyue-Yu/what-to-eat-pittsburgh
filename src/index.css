@@ -1,0 +1,43 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Playfair+Display:wght@700;800;900&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans SC", sans-serif;
+  --font-display: "Playfair Display", serif;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  background: #020404;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+.font-black {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: rgba(250, 204, 21, 0.35);
+  color: white;
+}
