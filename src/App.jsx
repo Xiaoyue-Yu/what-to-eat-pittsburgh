@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { RotateCcw, Sparkles, UtensilsCrossed } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 const RESTAURANT_LIST = [
-  "Restaurant A",
-  "Restaurant B",
-  "Restaurant C",
-  "Restaurant D",
-  "Restaurant E",
+  "CAVA",
+  "FiveGuys",
+  "BAO",
+  "McDonald's",
+  "Chipotle",
+  "Cane's",
+  "Root",
+  "西安面馆",
+  "天天见面",
+  "鑫福源",
+  "Popeyes",
+  "南翔小笼包",
+  "Porch",
+  "金阁",
+  "pho",
 ];
 
 const HOME_RECIPE_LIST = [
@@ -18,66 +28,103 @@ const HOME_RECIPE_LIST = [
   "Noodles",
 ];
 
-const STEP_COPY = {
-  time: {
-    title: "今天吃什么？",
-    subtitle: "匹兹堡觅食决策局，开局先决定是中饭还是晚饭。",
-  },
-  mode: {
-    title: "选择你的路线",
-    subtitle: "出门觅食，还是在家开火？命运会沿着你的选择发牌。",
-  },
-  spin: {
-    title: "命运转盘",
-    subtitle: "按下按钮，像洗牌一样快速翻动，最后停在今天的答案。",
-  },
-};
-
 const timeOptions = [
-  { value: "lunch", label: "中饭", accent: "午场", description: "来一局轻快的午餐决策" },
-  { value: "dinner", label: "晚饭", accent: "夜场", description: "把今晚的胃口交给幸运女神" },
+  { value: "lunch", label: "午餐" },
+  { value: "dinner", label: "晚餐" },
 ];
 
 const modeOptions = [
-  { value: "eat-out", label: "在外吃", accent: "外食牌组", description: "切到餐馆牌堆，抽一家出门开吃" },
-  { value: "cook-home", label: "自己做", accent: "家常牌组", description: "切到厨房牌堆，抽一道今晚要做的菜" },
+  { value: "eat-out", label: "外食" },
+  { value: "cook-home", label: "做饭" },
 ];
-
-const shimmer =
-  "before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(120deg,transparent_15%,rgba(255,255,255,0.16)_48%,transparent_82%)] before:opacity-0 before:transition-opacity before:duration-300 group-hover:before:opacity-100";
 
 function getOptionList(mode) {
   return mode === "eat-out" ? RESTAURANT_LIST : HOME_RECIPE_LIST;
+}
+
+function sampleCards(list, count = 6) {
+  const pool = [...list];
+  const picked = [];
+
+  while (pool.length && picked.length < count) {
+    const index = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(index, 1)[0]);
+  }
+
+  return picked;
 }
 
 function randomFromList(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+function getCardTheme(mode) {
+  return mode === "cook-home"
+    ? {
+        accentText: "text-[#ff8b8b]",
+        buttonBorder: "border-[#ff8b8b]/40",
+        buttonBg:
+          "bg-[linear-gradient(180deg,#ff8b8b_0%,#d94a4a_58%,#7f1d1d_100%)]",
+        panelBorder: "border-[#ff8b8b]/16",
+        activeChip: "border-[#ff8b8b]/60 bg-[#ff8b8b]/12 text-[#ffb4b4]",
+        backOuter:
+          "bg-[linear-gradient(160deg,#f2a4a4_0%,#bb3d3d_45%,#551313_100%)]",
+        backPatternBorder: "border-[#ffd1d1]/30",
+        faceOuter: "border-[#ffc6c6]/30 bg-[linear-gradient(180deg,#fff1f1_0%,#efaaaa_100%)]",
+        faceInner: "bg-[linear-gradient(180deg,rgba(255,255,255,0.76),rgba(255,232,232,0.98))]",
+        faceMeta: "text-[#9f2d2d]",
+      }
+    : {
+        accentText: "text-[#f7e7a1]",
+        buttonBorder: "border-[#f4d35e]/40",
+        buttonBg:
+          "bg-[linear-gradient(180deg,#f4d35e_0%,#d88429_62%,#933814_100%)]",
+        panelBorder: "border-[#e7c967]/16",
+        activeChip: "border-[#f4d35e]/60 bg-[#f4d35e]/12 text-[#f6df93]",
+        backOuter:
+          "bg-[linear-gradient(160deg,#f0d36f_0%,#b56a29_45%,#4b1c12_100%)]",
+        backPatternBorder: "border-[#f6df93]/30",
+        faceOuter: "border-[#f3df9b]/30 bg-[linear-gradient(180deg,#f8efcf_0%,#dfc07f_100%)]",
+        faceInner: "bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(252,244,223,0.96))]",
+        faceMeta: "text-[#8d5c1c]",
+      };
+}
+
 function App() {
   const [step, setStep] = useState("time");
   const [timeOfDay, setTimeOfDay] = useState("");
   const [mode, setMode] = useState("");
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [displayValue, setDisplayValue] = useState("等待发牌");
+  const [isShuffling, setIsShuffling] = useState(false);
+  const [deckCards, setDeckCards] = useState([]);
   const [selectedResult, setSelectedResult] = useState("");
-  const [flash, setFlash] = useState(0);
-  const intervalRef = useRef(null);
-  const timeoutRef = useRef(null);
+  const [shuffleTick, setShuffleTick] = useState(0);
+  const timersRef = useRef([]);
 
-  const currentList = getOptionList(mode);
+  const currentList = useMemo(() => getOptionList(mode), [mode]);
+  const cardTheme = useMemo(() => getCardTheme(mode), [mode]);
   const hasSelection = Boolean(timeOfDay && mode);
 
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      clearTimers();
     };
   }, []);
+
+  useEffect(() => {
+    if (mode) {
+      setDeckCards(sampleCards(getOptionList(mode)));
+    }
+  }, [mode]);
+
+  function clearTimers() {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }
+
+  function queueTimer(fn, delay) {
+    const timer = setTimeout(fn, delay);
+    timersRef.current.push(timer);
+  }
 
   function handleTimePick(nextTime) {
     setTimeOfDay(nextTime);
@@ -87,380 +134,347 @@ function App() {
   function handleModePick(nextMode) {
     setMode(nextMode);
     setSelectedResult("");
-    setDisplayValue("准备抽取");
-    setStep("spin");
+    setDeckCards(sampleCards(getOptionList(nextMode)));
+    setStep("deal");
   }
 
-  function handleStartOver() {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
+  function handleReset() {
+    clearTimers();
     setStep("time");
     setTimeOfDay("");
     setMode("");
-    setIsSpinning(false);
+    setIsShuffling(false);
+    setDeckCards([]);
     setSelectedResult("");
-    setDisplayValue("等待发牌");
+    setShuffleTick(0);
   }
 
-  function handleSpin() {
-    if (isSpinning || !currentList.length) {
+  function handleDeal() {
+    if (isShuffling || !currentList.length) {
       return;
     }
 
+    clearTimers();
+
     const winner = randomFromList(currentList);
-    setIsSpinning(true);
+    setIsShuffling(true);
     setSelectedResult("");
-    setFlash((value) => value + 1);
+    setShuffleTick((value) => value + 1);
 
-    let tick = 0;
-    const reelItems = [...currentList, ...currentList, ...currentList];
+    for (let frame = 0; frame < 10; frame += 1) {
+      queueTimer(() => {
+        setDeckCards(sampleCards(currentList));
+      }, frame * 110);
+    }
 
-    intervalRef.current = setInterval(() => {
-      const nextItem = reelItems[tick % reelItems.length];
-      setDisplayValue(nextItem);
-      tick += 1;
-    }, 90);
-
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current);
-      setDisplayValue(winner);
+    queueTimer(() => {
+      setDeckCards(sampleCards(currentList.filter((item) => item !== winner)));
       setSelectedResult(winner);
-      setIsSpinning(false);
-    }, 2500);
+      setIsShuffling(false);
+    }, 1250);
   }
 
-  const stageCopy = STEP_COPY[step];
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#15533c_0%,#07130f_48%,#020404_100%)] px-4 py-8 text-stone-50 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 opacity-40">
-        <div className="absolute left-1/2 top-0 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(248,201,72,0.2)_0%,transparent_68%)] blur-3xl" />
-        <div className="absolute -left-20 top-32 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(7,135,215,0.22)_0%,transparent_70%)] blur-3xl" />
-        <div className="absolute -right-12 bottom-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(238,55,82,0.18)_0%,transparent_70%)] blur-3xl" />
+    <main className="relative min-h-screen overflow-hidden bg-[#0b1712] px-4 py-6 text-stone-100 sm:px-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#214d36_0%,#08110d_52%,#040706_100%)]" />
+      <div className="absolute inset-0 opacity-70">
+        <div className="absolute left-1/2 top-12 h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(244,211,94,0.22)_0%,transparent_68%)] blur-3xl" />
+        <div className="absolute left-10 top-40 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(188,32,42,0.16)_0%,transparent_70%)] blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(58,130,246,0.14)_0%,transparent_72%)] blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col justify-center">
-        <motion.header
-          initial={{ opacity: 0, y: -18 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8 text-center"
-        >
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-black/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.4em] text-amber-200 shadow-[0_0_24px_rgba(253,224,71,0.18)] backdrop-blur">
-            <Sparkles className="h-4 w-4" />
-            What to Eat in Pittsburgh?
-          </div>
-          <h1 className="mt-5 text-4xl font-black tracking-[0.1em] text-transparent drop-shadow-[0_4px_0_rgba(0,0,0,0.45)] sm:text-6xl lg:text-7xl">
-            <span className="bg-[linear-gradient(180deg,#fff4bf_0%,#f8ca48_38%,#ff756e_100%)] bg-clip-text">
-              匹兹堡今天吃什么
-            </span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-stone-200/78 sm:text-base">
-            复古赌场风抽签机，三步决定今天的命运菜单。先选场次，再选路线，最后一把抽出答案。
-          </p>
-        </motion.header>
-
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="relative overflow-hidden rounded-[2rem] border border-amber-200/18 bg-black/35 p-5 shadow-[0_0_0_1px_rgba(251,191,36,0.08),0_26px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-7">
-            <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.8),transparent)]" />
-            <div className="mb-6">
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-sky-300">
-                Stage {step === "time" ? "01" : step === "mode" ? "02" : "03"}
-              </div>
-              <h2 className="mt-2 text-3xl font-black tracking-[0.08em] text-stone-50 sm:text-4xl">
-                {stageCopy.title}
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300/80 sm:text-base">
-                {stageCopy.subtitle}
-              </p>
+      <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl flex-col justify-center">
+        <header className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-black tracking-[0.12em] text-[#f7e7a1] sm:text-5xl">
+              吃什么
+            </h1>
+            <div className="mt-2 flex gap-2 text-xs font-bold uppercase tracking-[0.3em] text-stone-400">
+              <span className={timeOfDay ? "text-[#f4d35e]" : ""}>
+                {timeOfDay === "lunch" ? "Lunch" : timeOfDay === "dinner" ? "Dinner" : "--"}
+              </span>
+              <span>/</span>
+              <span className={mode ? "text-[#f4d35e]" : ""}>
+                {mode === "eat-out" ? "Out" : mode === "cook-home" ? "Home" : "--"}
+              </span>
             </div>
+          </div>
 
-            <AnimatePresence mode="wait">
+          <IconButton onClick={handleReset}>
+            <RotateCcw className="h-4 w-4" />
+          </IconButton>
+        </header>
+
+        <section className="rounded-[2.2rem] border border-white/10 bg-black/20 p-4 shadow-[0_30px_120px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${step}-${selectedResult || "idle"}`}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -18 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="space-y-5"
+            >
               {step === "time" && (
-                <motion.div
-                  key="time"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -40 }}
-                  transition={{ type: "spring", stiffness: 140, damping: 18 }}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
-                  {timeOptions.map((option) => (
-                    <OptionCard
-                      key={option.value}
-                      title={option.label}
-                      accent={option.accent}
-                      description={option.description}
-                      onClick={() => handleTimePick(option.value)}
-                    />
-                  ))}
-                </motion.div>
+                <OptionGrid
+                  options={timeOptions}
+                  onPick={handleTimePick}
+                  selectedValue={timeOfDay}
+                />
               )}
 
               {step === "mode" && (
-                <motion.div
-                  key="mode"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -40 }}
-                  transition={{ type: "spring", stiffness: 140, damping: 18 }}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
-                  {modeOptions.map((option) => (
-                    <OptionCard
-                      key={option.value}
-                      title={option.label}
-                      accent={option.accent}
-                      description={option.description}
-                      onClick={() => handleModePick(option.value)}
-                    />
-                  ))}
-                </motion.div>
+                <OptionGrid
+                  options={modeOptions}
+                  onPick={handleModePick}
+                  selectedValue={mode}
+                />
               )}
 
-              {step === "spin" && (
-                <motion.div
-                  key="spin"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -40 }}
-                  transition={{ type: "spring", stiffness: 140, damping: 18 }}
-                  className="space-y-6"
-                >
-                  <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-                    <div className="rounded-[1.6rem] border border-sky-300/20 bg-[linear-gradient(180deg,rgba(16,30,31,0.95),rgba(3,8,9,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_50px_rgba(0,0,0,0.35)]">
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.3em] text-stone-400">
-                        <span>{timeOfDay === "lunch" ? "中饭牌局" : "晚饭牌局"}</span>
-                        <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-amber-200">
-                          {mode === "eat-out" ? "外食牌组" : "家常牌组"}
-                        </span>
-                      </div>
-                      <SlotDisplay
-                        value={displayValue}
-                        isSpinning={isSpinning}
-                        flashKey={flash}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <ActionButton onClick={handleSpin} disabled={isSpinning}>
-                        {isSpinning ? "洗牌中..." : "开始抽签"}
-                      </ActionButton>
-                      <SecondaryButton onClick={handleStartOver}>
-                        重新开局
-                      </SecondaryButton>
-                    </div>
-                  </div>
-
-                  <AnimatePresence>
-                    {selectedResult && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 28, scale: 0.9 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 20, scale: 0.92 }}
-                        transition={{ type: "spring", stiffness: 170, damping: 14 }}
-                        className="relative overflow-hidden rounded-[1.8rem] border border-amber-300/35 bg-[linear-gradient(135deg,rgba(83,28,21,0.88),rgba(23,17,4,0.96))] p-5 shadow-[0_0_30px_rgba(248,201,72,0.18),0_24px_80px_rgba(0,0,0,0.38)]"
-                      >
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(250,221,124,0.28),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.2),transparent_36%)]" />
-                        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <div className="text-xs font-bold uppercase tracking-[0.35em] text-amber-200/80">
-                              今日揭晓
-                            </div>
-                            <div className="mt-2 text-3xl font-black tracking-[0.08em] text-stone-50 sm:text-4xl">
-                              {selectedResult}
-                            </div>
-                            <p className="mt-2 text-sm text-stone-200/78">
-                              {mode === "eat-out"
-                                ? "命运建议你直接出门，冲这一家。"
-                                : "命运建议你今晚开火，就做这一道。"}
-                            </p>
-                          </div>
-
-                          <div className="flex gap-3">
-                            <ActionButton onClick={handleSpin} disabled={isSpinning} compact>
-                              再抽一次
-                            </ActionButton>
-                            <SecondaryButton onClick={handleStartOver} compact>
-                              从头再来
-                            </SecondaryButton>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+              {step === "deal" && (
+                <>
+                  <DeckTable
+                    key={shuffleTick}
+                    cards={deckCards}
+                    isShuffling={isShuffling}
+                    theme={cardTheme}
+                    selectedResult={selectedResult}
+                    onDeal={handleDeal}
+                  />
+                  <MiniList
+                    items={hasSelection ? currentList : []}
+                    activeItem={selectedResult}
+                    theme={cardTheme}
+                  />
+                </>
               )}
-            </AnimatePresence>
-          </section>
-
-          <aside className="grid gap-6">
-            <div className="rounded-[2rem] border border-sky-300/18 bg-[linear-gradient(180deg,rgba(6,18,25,0.88),rgba(3,6,10,0.94))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-xl">
-              <div className="flex items-center gap-3 text-sky-200">
-                <UtensilsCrossed className="h-5 w-5" />
-                <span className="text-sm font-bold uppercase tracking-[0.28em]">
-                  当前牌面
-                </span>
-              </div>
-              <div className="mt-4 space-y-3">
-                <StatusChip
-                  label="用餐时段"
-                  value={
-                    timeOfDay
-                      ? timeOfDay === "lunch"
-                        ? "中饭"
-                        : "晚饭"
-                      : "尚未选择"
-                  }
-                />
-                <StatusChip
-                  label="路线"
-                  value={
-                    mode
-                      ? mode === "eat-out"
-                        ? "在外吃"
-                        : "自己做"
-                      : "尚未选择"
-                  }
-                />
-                <StatusChip
-                  label="候选池"
-                  value={hasSelection ? `${currentList.length} 个选项` : "等待建立牌组"}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-rose-300/18 bg-[linear-gradient(180deg,rgba(31,7,12,0.88),rgba(8,3,4,0.96))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-xl">
-              <div className="text-sm font-bold uppercase tracking-[0.28em] text-rose-200">
-                牌组预览
-              </div>
-              <div className="mt-4 grid gap-3">
-                {(hasSelection ? currentList : ["等待选择后显示牌组"]).map((item, index) => (
-                  <motion.div
-                    key={`${item}-${index}`}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm font-semibold tracking-[0.05em] text-stone-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  >
-                    {item}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </aside>
-        </div>
+            </motion.div>
+          </AnimatePresence>
+        </section>
       </div>
     </main>
   );
 }
 
-function OptionCard({ title, accent, description, onClick }) {
+function OptionGrid({ options, onPick, selectedValue }) {
   return (
-    <motion.button
-      whileHover={{ y: -6, scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 240, damping: 16 }}
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-[1.7rem] border border-amber-300/22 bg-[linear-gradient(150deg,rgba(38,16,6,0.96),rgba(8,8,12,0.95)_48%,rgba(8,30,33,0.96))] p-5 text-left shadow-[0_0_0_1px_rgba(245,158,11,0.06),0_24px_60px_rgba(0,0,0,0.35)] transition-all duration-300 hover:border-amber-300/55 hover:shadow-[0_0_26px_rgba(250,204,21,0.18),0_28px_70px_rgba(0,0,0,0.42)] ${shimmer}`}
-    >
-      <div className="absolute right-3 top-3 rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-sky-200">
-        {accent}
-      </div>
-      <div className="relative">
-        <div className="text-sm font-bold uppercase tracking-[0.35em] text-amber-200/72">
-          Choose
-        </div>
-        <div className="mt-7 text-3xl font-black tracking-[0.08em] text-stone-50">{title}</div>
-        <p className="mt-3 max-w-xs text-sm leading-6 text-stone-300/82">{description}</p>
-      </div>
-    </motion.button>
+    <div className="grid min-h-[24rem] gap-4 sm:grid-cols-2">
+      {options.map((option, index) => (
+        <motion.button
+          key={option.value}
+          initial={{ opacity: 0, y: 28, rotate: index === 0 ? -2 : 2 }}
+          animate={{ opacity: 1, y: 0, rotate: 0 }}
+          whileHover={{ y: -6, rotate: index === 0 ? -1.5 : 1.5 }}
+          whileTap={{ scale: 0.98, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+          onClick={() => onPick(option.value)}
+          className={`group relative min-h-[11rem] overflow-hidden rounded-[1.8rem] border p-5 text-left ${
+            selectedValue === option.value
+              ? "border-[#f4d35e]/70 bg-[linear-gradient(160deg,rgba(142,97,20,0.92),rgba(44,22,10,0.98))]"
+              : "border-white/10 bg-[linear-gradient(160deg,rgba(25,25,22,0.96),rgba(7,8,10,0.96))]"
+          } shadow-[0_20px_60px_rgba(0,0,0,0.38)]`}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,211,94,0.16),transparent_35%)] opacity-70" />
+          <div className="relative flex h-full items-end">
+            <div className="text-4xl font-black tracking-[0.08em] text-stone-50 sm:text-5xl">
+              {option.label}
+            </div>
+          </div>
+        </motion.button>
+      ))}
+    </div>
   );
 }
 
-function SlotDisplay({ value, isSpinning, flashKey }) {
+function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
+  return (
+    <div
+      className={`rounded-[1.9rem] border ${theme.panelBorder} bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),rgba(255,255,255,0.02)_28%,rgba(0,0,0,0.24)_70%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]`}
+    >
+      <div className="relative min-h-[31rem] overflow-hidden rounded-[1.8rem] border border-white/8 bg-[linear-gradient(180deg,rgba(20,52,35,0.9),rgba(11,25,18,0.96))] p-4 sm:p-6">
+        <div className="absolute right-4 top-4 z-30">
+          <button
+            onClick={onDeal}
+            disabled={isShuffling}
+            className={`h-14 rounded-full border px-6 text-xs font-black uppercase tracking-[0.28em] transition-all ${
+              isShuffling
+                ? "cursor-not-allowed border-white/10 bg-white/5 text-stone-500"
+                : `${theme.buttonBorder} ${theme.buttonBg} text-stone-950 shadow-[0_12px_34px_rgba(0,0,0,0.35)] hover:translate-y-[-2px]`
+            }`}
+          >
+            {isShuffling ? "Shuffling" : selectedResult ? "Again" : "Deal"}
+          </button>
+        </div>
+
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_55%)]" />
+        <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/6" />
+
+        <div className="relative flex min-h-[23rem] items-center justify-center">
+          <div className="relative h-56 w-72">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <BackCard
+                key={`back-${index}`}
+                index={index}
+                isShuffling={isShuffling}
+                theme={theme}
+              />
+            ))}
+
+            <AnimatePresence>
+              {selectedResult && !isShuffling && (
+                <motion.div
+                  initial={{ x: -18, y: 22, rotate: -11, scale: 0.92, opacity: 0.65 }}
+                  animate={{ x: 112, y: -36, rotate: 7, scale: 1, opacity: 1 }}
+                  transition={{
+                    duration: 0.82,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="absolute left-1/2 top-1/2 z-30 -ml-20 -mt-28"
+                >
+                  <FaceCard label={selectedResult} featured theme={theme} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        <div className="relative mt-4 flex min-h-16 items-center justify-center">
+          <AnimatePresence mode="wait">
+            {selectedResult ? (
+              <motion.div
+                key={selectedResult}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -18 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className={`text-center text-3xl font-black tracking-[0.06em] ${theme.accentText} sm:text-4xl`}
+              >
+                {selectedResult}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="placeholder"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                className="text-xs font-bold uppercase tracking-[0.45em] text-stone-500"
+              >
+                {isShuffling ? "..." : "Draw"}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="relative mt-4 flex flex-wrap justify-center gap-3">
+          {cards.map((item, index) => (
+            <motion.div
+              key={`${item}-${index}`}
+              initial={{ opacity: 0, y: 16, rotate: -4 + index }}
+              animate={{ opacity: 0.92, y: 0, rotate: -4 + index }}
+              transition={{ delay: index * 0.03 }}
+              className="hidden sm:block"
+            >
+              <MiniCard label={item} />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BackCard({ index, isShuffling, theme }) {
+  const baseRotate = -12 + index * 4;
+  const baseX = index * 6;
+  const baseY = index * 3;
+
   return (
     <motion.div
-      key={flashKey}
       animate={
-        isSpinning
+        isShuffling
           ? {
-              boxShadow: [
-                "0 0 0 rgba(14,165,233,0)",
-                "0 0 36px rgba(14,165,233,0.28)",
-                "0 0 0 rgba(14,165,233,0)",
-              ],
+              x: [baseX, baseX - 20 + index * 2, baseX + 28 - index * 2, baseX - 10, baseX + 6, baseX],
+              y: [baseY, baseY - 8, baseY + 10, baseY - 4, baseY + 2, baseY],
+              rotate: [baseRotate, baseRotate - 8, baseRotate + 12, baseRotate - 4, baseRotate + 2, baseRotate],
+              scale: [1, 1.02, 0.99, 1.015, 1],
             }
-          : undefined
+          : {
+              x: baseX,
+              y: baseY,
+              rotate: baseRotate,
+              scale: 1,
+            }
       }
-      transition={{ repeat: isSpinning ? Infinity : 0, duration: 0.9 }}
-      className="mt-4 rounded-[1.5rem] border border-amber-200/18 bg-[linear-gradient(180deg,rgba(245,183,66,0.08),rgba(255,255,255,0.02))] p-4 sm:p-5"
+      transition={{
+        duration: isShuffling ? 1.18 : 0.45,
+        times: isShuffling ? [0, 0.18, 0.4, 0.68, 0.86, 1] : undefined,
+        ease: isShuffling ? [0.22, 1, 0.36, 1] : "easeOut",
+        delay: isShuffling ? index * 0.018 : 0,
+      }}
+      className={`absolute left-1/2 top-1/2 h-40 w-28 origin-center -translate-x-1/2 -translate-y-1/2 rounded-[1.3rem] border border-white/20 ${theme.backOuter} p-[3px] shadow-[0_18px_30px_rgba(0,0,0,0.34)]`}
+      style={{ zIndex: index + 1 }}
     >
-      <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase tracking-[0.3em] text-stone-400">
-        <span>抽签窗口</span>
-        <span className={isSpinning ? "text-sky-300" : "text-amber-200"}>
-          {isSpinning ? "Spinning" : "Ready"}
-        </span>
-      </div>
-      <div className="relative overflow-hidden rounded-[1.2rem] border border-white/10 bg-black/45 px-4 py-8 shadow-[inset_0_2px_12px_rgba(0,0,0,0.45)]">
-        <div className="absolute inset-x-0 top-1/2 h-16 -translate-y-1/2 rounded-xl border-y border-amber-200/20 bg-amber-300/[0.06]" />
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={value}
-            initial={{ opacity: 0, y: -40, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 1.06 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20, mass: 0.8 }}
-            className="relative z-10 text-center text-3xl font-black tracking-[0.08em] text-stone-50 sm:text-4xl"
-          >
-            {value}
-          </motion.div>
-        </AnimatePresence>
+      <div className="flex h-full w-full items-center justify-center rounded-[1.05rem] border border-black/20 bg-[radial-gradient(circle_at_top,#2d3d79_0%,#192140_55%,#0e1224_100%)]">
+        <div
+          className={`h-24 w-16 rounded-[0.9rem] border ${theme.backPatternBorder} bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.18)_0,rgba(255,255,255,0.18)_8px,transparent_8px,transparent_16px)]`}
+        />
       </div>
     </motion.div>
   );
 }
 
-function ActionButton({ children, disabled, onClick, compact = false }) {
+function MiniCard({ label }) {
   return (
-    <motion.button
-      whileHover={disabled ? undefined : { scale: 1.03 }}
-      whileTap={disabled ? undefined : { scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 250, damping: 16 }}
-      disabled={disabled}
-      onClick={onClick}
-      className={`rounded-[1.25rem] border border-amber-300/35 bg-[linear-gradient(180deg,#f6ce5a_0%,#de8d1d_52%,#9f3412_100%)] px-5 font-black tracking-[0.08em] text-stone-950 shadow-[0_10px_0_rgba(117,44,18,0.85),0_20px_40px_rgba(0,0,0,0.35)] transition-all duration-200 ${compact ? "py-3 text-sm" : "py-4 text-base"} ${disabled ? "cursor-not-allowed opacity-60 shadow-[0_8px_0_rgba(117,44,18,0.55)]" : "hover:brightness-110"}`}
-    >
-      {children}
-    </motion.button>
-  );
-}
-
-function SecondaryButton({ children, onClick, compact = false }) {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 250, damping: 18 }}
-      onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-[1.25rem] border border-white/12 bg-white/[0.06] px-5 font-bold tracking-[0.08em] text-stone-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-200 hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-100 ${compact ? "py-3 text-sm" : "py-4 text-base"}`}
-    >
-      <RotateCcw className="h-4 w-4" />
-      {children}
-    </motion.button>
-  );
-}
-
-function StatusChip({ label, value }) {
-  return (
-    <div className="rounded-[1.3rem] border border-white/10 bg-white/[0.04] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-      <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-stone-400">{label}</div>
-      <div className="mt-2 text-lg font-black tracking-[0.06em] text-stone-50">{value}</div>
+    <div className="flex min-h-16 min-w-28 items-center justify-center rounded-[1rem] border border-white/8 bg-white/[0.05] px-4 py-3 text-center text-xs font-bold tracking-[0.04em] text-stone-200">
+      {label}
     </div>
+  );
+}
+
+function MiniList({ items, activeItem, theme }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <div
+          key={item}
+          className={`rounded-full border px-3 py-1.5 text-xs font-bold tracking-[0.08em] ${
+            item === activeItem
+              ? theme.activeChip
+              : "border-white/8 bg-white/[0.04] text-stone-400"
+          }`}
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+function FaceCard({ label, featured = false, theme }) {
+  return (
+    <div
+      className={`rounded-[1.7rem] ${theme.faceOuter} p-[3px] text-stone-950 shadow-[0_24px_70px_rgba(0,0,0,0.42)] ${
+        featured ? "h-56 w-40" : "h-48 w-34"
+      }`}
+    >
+      <div className={`flex h-full w-full flex-col rounded-[1.45rem] border border-black/10 ${theme.faceInner} p-4`}>
+        <div className={`text-xs font-black uppercase tracking-[0.35em] ${theme.faceMeta}`}>Pick</div>
+        <div className="flex flex-1 items-center justify-center text-center text-2xl font-black leading-tight tracking-[0.04em] text-stone-950">
+          {label}
+        </div>
+        <div className={`text-right text-xs font-bold uppercase tracking-[0.35em] ${theme.faceMeta}`}>Eat</div>
+      </div>
+    </div>
+  );
+}
+
+function IconButton({ children, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-stone-200 transition-all hover:border-[#f4d35e]/40 hover:bg-[#f4d35e]/10 hover:text-[#f8e8a8]"
+    >
+      {children}
+    </button>
   );
 }
 
