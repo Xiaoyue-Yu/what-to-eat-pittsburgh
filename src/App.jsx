@@ -98,6 +98,7 @@ function App() {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+
     setStep("time");
     setTimeOfDay("");
     setMode("");
@@ -385,7 +386,17 @@ function SlotDisplay({ value, isSpinning, flashKey }) {
   return (
     <motion.div
       key={flashKey}
-      animate={isSpinning ? { boxShadow: ["0 0 0 rgba(14,165,233,0)", "0 0 36px rgba(14,165,233,0.28)", "0 0 0 rgba(14,165,233,0)"] } : undefined}
+      animate={
+        isSpinning
+          ? {
+              boxShadow: [
+                "0 0 0 rgba(14,165,233,0)",
+                "0 0 36px rgba(14,165,233,0.28)",
+                "0 0 0 rgba(14,165,233,0)",
+              ],
+            }
+          : undefined
+      }
       transition={{ repeat: isSpinning ? Infinity : 0, duration: 0.9 }}
       className="mt-4 rounded-[1.5rem] border border-amber-200/18 bg-[linear-gradient(180deg,rgba(245,183,66,0.08),rgba(255,255,255,0.02))] p-4 sm:p-5"
     >
