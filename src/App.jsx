@@ -42,20 +42,15 @@ function getOptionList(mode) {
   return mode === "eat-out" ? RESTAURANT_LIST : HOME_RECIPE_LIST;
 }
 
-function sampleCards(list, count = 6) {
-  const pool = [...list];
-  const picked = [];
+function shuffleList(list) {
+  const next = [...list];
 
-  while (pool.length && picked.length < count) {
-    const index = Math.floor(Math.random() * pool.length);
-    picked.push(pool.splice(index, 1)[0]);
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
   }
 
-  return picked;
-}
-
-function randomFromList(list) {
-  return list[Math.floor(Math.random() * list.length)];
+  return next;
 }
 
 function getCardTheme(mode) {
@@ -97,6 +92,7 @@ function App() {
   const [isShuffling, setIsShuffling] = useState(false);
   const [deckCards, setDeckCards] = useState([]);
   const [selectedResult, setSelectedResult] = useState("");
+  const [selectedCardIndex, setSelectedCardIndex] = useState(null);
   const [shuffleTick, setShuffleTick] = useState(0);
   const timersRef = useRef([]);
 
@@ -109,12 +105,6 @@ function App() {
       clearTimers();
     };
   }, []);
-
-  useEffect(() => {
-    if (mode) {
-      setDeckCards(sampleCards(getOptionList(mode)));
-    }
-  }, [mode]);
 
   function clearTimers() {
     timersRef.current.forEach(clearTimeout);
@@ -134,7 +124,9 @@ function App() {
   function handleModePick(nextMode) {
     setMode(nextMode);
     setSelectedResult("");
-    setDeckCards(sampleCards(getOptionList(nextMode)));
+    setSelectedCardIndex(null);
+    setDeckCards(shuffleList(getOptionList(nextMode)));
+    setShuffleTick((value) => value + 1);
     setStep("deal");
   }
 
@@ -146,32 +138,36 @@ function App() {
     setIsShuffling(false);
     setDeckCards([]);
     setSelectedResult("");
+    setSelectedCardIndex(null);
     setShuffleTick(0);
   }
 
-  function handleDeal() {
-    if (isShuffling || !currentList.length) {
+  function handleCardPick(index) {
+    if (isShuffling || selectedResult || index == null) {
       return;
     }
 
     clearTimers();
-
-    const winner = randomFromList(currentList);
     setIsShuffling(true);
     setSelectedResult("");
-    setShuffleTick((value) => value + 1);
-
-    for (let frame = 0; frame < 10; frame += 1) {
-      queueTimer(() => {
-        setDeckCards(sampleCards(currentList));
-      }, frame * 110);
-    }
+    setSelectedCardIndex(index);
 
     queueTimer(() => {
-      setDeckCards(sampleCards(currentList.filter((item) => item !== winner)));
-      setSelectedResult(winner);
+      setSelectedResult(deckCards[index]);
       setIsShuffling(false);
-    }, 1250);
+    }, 980);
+  }
+
+  function handleRedeal() {
+    if (!currentList.length || isShuffling) {
+      return;
+    }
+
+    clearTimers();
+    setSelectedResult("");
+    setSelectedCardIndex(null);
+    setDeckCards(shuffleList(currentList));
+    setShuffleTick((value) => value + 1);
   }
 
   return (
@@ -239,7 +235,9 @@ function App() {
                     isShuffling={isShuffling}
                     theme={cardTheme}
                     selectedResult={selectedResult}
-                    onDeal={handleDeal}
+                    selectedCardIndex={selectedCardIndex}
+                    onCardPick={handleCardPick}
+                    onRedeal={handleRedeal}
                   />
                   <MiniList
                     items={hasSelection ? currentList : []}
@@ -286,7 +284,15 @@ function OptionGrid({ options, onPick, selectedValue }) {
   );
 }
 
-function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
+function DeckTable({
+  cards,
+  isShuffling,
+  selectedResult,
+  selectedCardIndex,
+  onCardPick,
+  onRedeal,
+  theme,
+}) {
   return (
     <div
       className={`rounded-[1.9rem] border ${theme.panelBorder} bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),rgba(255,255,255,0.02)_28%,rgba(0,0,0,0.24)_70%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]`}
@@ -294,7 +300,7 @@ function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
       <div className="relative min-h-[31rem] overflow-hidden rounded-[1.8rem] border border-white/8 bg-[linear-gradient(180deg,rgba(20,52,35,0.9),rgba(11,25,18,0.96))] p-4 sm:p-6">
         <div className="absolute right-4 top-4 z-30">
           <button
-            onClick={onDeal}
+            onClick={onRedeal}
             disabled={isShuffling}
             className={`h-14 rounded-full border px-6 text-xs font-black uppercase tracking-[0.28em] transition-all ${
               isShuffling
@@ -302,34 +308,40 @@ function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
                 : `${theme.buttonBorder} ${theme.buttonBg} text-stone-950 shadow-[0_12px_34px_rgba(0,0,0,0.35)] hover:translate-y-[-2px]`
             }`}
           >
-            {isShuffling ? "Shuffling" : selectedResult ? "Again" : "Deal"}
+            {isShuffling ? "Drawing" : selectedResult ? "Again" : "Shuffle"}
           </button>
         </div>
 
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_55%)]" />
         <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/6" />
 
-        <div className="relative flex min-h-[23rem] items-center justify-center">
-          <div className="relative h-56 w-72">
-            {Array.from({ length: 7 }).map((_, index) => (
+        <div className="relative flex min-h-[23rem] items-center justify-center px-3">
+          <div className="relative flex w-full max-w-5xl flex-wrap items-center justify-center gap-2 sm:gap-3">
+            {cards.map((item, index) => (
               <BackCard
-                key={`back-${index}`}
+                key={`${item}-${index}`}
                 index={index}
+                total={cards.length}
                 isShuffling={isShuffling}
+                isSelected={selectedCardIndex === index}
+                isRevealed={Boolean(selectedResult)}
+                isDimmed={selectedCardIndex !== null && selectedCardIndex !== index}
                 theme={theme}
+                onPick={() => onCardPick(index)}
               />
             ))}
 
             <AnimatePresence>
-              {selectedResult && !isShuffling && (
+              {selectedResult && selectedCardIndex !== null && !isShuffling && (
                 <motion.div
-                  initial={{ x: -18, y: 22, rotate: -11, scale: 0.92, opacity: 0.65 }}
-                  animate={{ x: 112, y: -36, rotate: 7, scale: 1, opacity: 1 }}
+                  initial={{ y: 8, scale: 0.9, opacity: 0 }}
+                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                  exit={{ y: 12, scale: 0.92, opacity: 0 }}
                   transition={{
-                    duration: 0.82,
+                    duration: 0.42,
                     ease: [0.22, 1, 0.36, 1],
                   }}
-                  className="absolute left-1/2 top-1/2 z-30 -ml-20 -mt-28"
+                  className="pointer-events-none absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2"
                 >
                   <FaceCard label={selectedResult} featured theme={theme} />
                 </motion.div>
@@ -359,7 +371,7 @@ function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
                 exit={{ opacity: 0 }}
                 className="text-xs font-bold uppercase tracking-[0.45em] text-stone-500"
               >
-                {isShuffling ? "..." : "Draw"}
+                {isShuffling ? "Drawing..." : "Pick A Card"}
               </motion.div>
             )}
           </AnimatePresence>
@@ -383,36 +395,52 @@ function DeckTable({ cards, isShuffling, selectedResult, onDeal, theme }) {
   );
 }
 
-function BackCard({ index, isShuffling, theme }) {
-  const baseRotate = -12 + index * 4;
-  const baseX = index * 6;
-  const baseY = index * 3;
+function BackCard({
+  index,
+  total,
+  isShuffling,
+  isSelected,
+  isRevealed,
+  isDimmed,
+  theme,
+  onPick,
+}) {
+  const spread = total > 1 ? index / (total - 1) - 0.5 : 0;
+  const baseRotate = spread * 22;
+  const lift = 18 - Math.abs(spread) * 36;
 
   return (
     <motion.div
+      initial={{ x: 0, y: 54, rotate: 0, scale: 0.92, opacity: 0 }}
       animate={
-        isShuffling
+        isSelected && isShuffling
           ? {
-              x: [baseX, baseX - 20 + index * 2, baseX + 28 - index * 2, baseX - 10, baseX + 6, baseX],
-              y: [baseY, baseY - 8, baseY + 10, baseY - 4, baseY + 2, baseY],
-              rotate: [baseRotate, baseRotate - 8, baseRotate + 12, baseRotate - 4, baseRotate + 2, baseRotate],
-              scale: [1, 1.02, 0.99, 1.015, 1],
+              y: [lift, lift - 22, lift + 10, lift - 36, -92],
+              rotate: [baseRotate, baseRotate - 8, baseRotate + 6, 0, 0],
+              scale: [1, 1.04, 0.98, 1.08, 1.12],
+              opacity: [1, 1, 1, 1, 0],
             }
           : {
-              x: baseX,
-              y: baseY,
-              rotate: baseRotate,
-              scale: 1,
+              x: 0,
+              y: isDimmed && isRevealed ? 52 : lift,
+              rotate: isDimmed && isRevealed ? baseRotate * 0.45 : baseRotate,
+              scale: isSelected && !isRevealed ? 1.02 : 1,
+              opacity: isDimmed && isRevealed ? 0 : 1,
             }
       }
       transition={{
-        duration: isShuffling ? 1.18 : 0.45,
-        times: isShuffling ? [0, 0.18, 0.4, 0.68, 0.86, 1] : undefined,
-        ease: isShuffling ? [0.22, 1, 0.36, 1] : "easeOut",
-        delay: isShuffling ? index * 0.018 : 0,
+        duration: isSelected && isShuffling ? 0.96 : 0.52,
+        times: isSelected && isShuffling ? [0, 0.2, 0.45, 0.72, 1] : undefined,
+        ease: [0.22, 1, 0.36, 1],
+        delay: isSelected && isShuffling ? 0.03 : index * 0.035,
       }}
-      className={`absolute left-1/2 top-1/2 h-40 w-28 origin-center -translate-x-1/2 -translate-y-1/2 rounded-[1.3rem] border border-white/20 ${theme.backOuter} p-[3px] shadow-[0_18px_30px_rgba(0,0,0,0.34)]`}
-      style={{ zIndex: index + 1 }}
+      whileHover={!isShuffling && !isRevealed ? { y: lift - 12, scale: 1.03 } : undefined}
+      whileTap={!isShuffling && !isRevealed ? { scale: 0.98 } : undefined}
+      className={`h-36 w-24 origin-bottom rounded-[1.3rem] border border-white/20 ${theme.backOuter} p-[3px] shadow-[0_18px_30px_rgba(0,0,0,0.34)] sm:h-40 sm:w-28 ${
+        isShuffling || isRevealed ? "pointer-events-none" : "cursor-pointer"
+      }`}
+      style={{ zIndex: isSelected ? total + 10 : index + 1 }}
+      onClick={onPick}
     >
       <div className="flex h-full w-full items-center justify-center rounded-[1.05rem] border border-black/20 bg-[radial-gradient(circle_at_top,#2d3d79_0%,#192140_55%,#0e1224_100%)]">
         <div
